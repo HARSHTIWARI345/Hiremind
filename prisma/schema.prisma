@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  RECRUITER
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  REJECTED
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId   String   @unique
+  role      UserRole
+  name      String?
+  email     String   @unique
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentProfile  StudentProfile?
+  recruiterProfile RecruiterProfile?
+  applications    Application[]
+  interviews      Interview[]
+  jobs            Job[] // Jobs posted by recruiter
+}
+
+model StudentProfile {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @unique @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeUrl  String?
+  skills     String[] @default([])
+  parsedData Json? // Structured resume data from AI
+  createdAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RecruiterProfile {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @unique @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  companyLogo String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Job {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  recruiterId String   @db.ObjectId
+  recruiter   User     @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  skills      String[] @default([])
+  experience  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applications Application[]
+}
+
+model Application {
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
+  jobId      String            @db.ObjectId
+  job        Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  studentId  String            @db.ObjectId
+  student    User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status     ApplicationStatus @default(APPLIED)
+  aiScore    Float? // Overall match score
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  interview Interview?
+}
+
+model Interview {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId    String   @db.ObjectId
+  student      User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  jobId        String
+  applicationId String? @unique @db.ObjectId
+  application  Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questions    Json // Array of questions
+  answers      Json // Array of answers with evaluations
+  feedback     Json? // Overall feedback
+  score        Float? // Overall interview score
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
